@@ -374,7 +374,7 @@ export default function Home() {
           <span>Konopix Hack-In Simulator</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="header-actions">
           <button className="reset-btn" onClick={resetAll}>
             ↺ Reset
           </button>
