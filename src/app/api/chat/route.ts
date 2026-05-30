@@ -57,44 +57,78 @@ function needsSearch(msg: string): boolean {
 // Scrape DuckDuckGo for real search results
 async function searchDuckDuckGo(query: string): Promise<{ snippets: string[], urls: string[] }> {
   try {
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    // Using the "lite" version of DuckDuckGo which is more scraping-friendly
+    const ddgUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
     const res = await fetch(ddgUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'cs,en;q=0.9',
       },
       cache: 'no-store',
     });
 
-    if (!res.ok) return { snippets: [], urls: [] };
+    if (!res.ok) {
+      console.warn(`DuckDuckGo returned ${res.status}`);
+      return { snippets: [], urls: [] };
+    }
+    
     const html = await res.text();
-
-    // Extract snippets
-    const snippetRegex = /<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
     const snippets: string[] = [];
+    const urls: string[] = [];
+
+    // Simple parser for lite.duckduckgo.com
+    const resultRegex = /<td class='result-snippet'>([\s\S]*?)<\/td>/gi;
+    const urlRegex = /<a class='result-link' href='([^']+)'>/gi;
+    
     let match;
-    while ((match = snippetRegex.exec(html)) !== null && snippets.length < 5) {
-      const clean = match[1].replace(/<\/?[^>]+(>|$)/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;/g, "'").trim();
+    while ((match = resultRegex.exec(html)) !== null && snippets.length < 5) {
+      const clean = match[1].replace(/<\/?[^>]+(>|$)/g, '').trim();
       if (clean.length > 20) snippets.push(clean);
     }
 
-    // Extract URLs
-    const urlRegex = /<a class="result__url" href="([^"]+)"/gi;
-    const urls: string[] = [];
     while ((match = urlRegex.exec(html)) !== null && urls.length < 5) {
-      try {
-        let raw = match[1];
-        if (raw.includes('uddg=')) {
-          raw = decodeURIComponent(raw.split('uddg=')[1].split('&')[0]);
-        }
-        if (raw.startsWith('http')) urls.push(raw);
-      } catch { /* skip bad URL */ }
+      const url = match[1];
+      if (url.startsWith('http')) urls.push(url);
     }
 
     return { snippets, urls };
   } catch (err) {
     console.error('DuckDuckGo search error:', err);
+    return { snippets: [], urls: [] };
+  }
+}
+
+// Nexus Search — Robust AI-optimized Search (e.g. via Tavily or Serper)
+async function searchNexus(query: string): Promise<{ snippets: string[], urls: string[] }> {
+  const apiKey = process.env.TAVILY_API_KEY || process.env.NEXUS_API_KEY;
+  
+  if (!apiKey) {
+    console.log('Nexus Search API key not found, skipping...');
+    return { snippets: [], urls: [] };
+  }
+
+  try {
+    // Example using Tavily API which is highly reliable for AI
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query,
+        search_depth: 'basic',
+        max_results: 5
+      })
+    });
+
+    if (!res.ok) return { snippets: [], urls: [] };
+    const data = await res.json();
+
+    return {
+      snippets: data.results.map((r: any) => r.content),
+      urls: data.results.map((r: any) => r.url)
+    };
+  } catch (err) {
+    console.error('Nexus Search error:', err);
     return { snippets: [], urls: [] };
   }
 }
@@ -322,10 +356,19 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // 13. Web Search (DuckDuckGo)
+    // 13. Web Search (Nexus + DuckDuckGo)
     // ============================
     if (needsSearch(message)) {
-      const { snippets, urls } = await searchDuckDuckGo(message);
+      // 1. Try Nexus Search first (Reliable API)
+      let { snippets, urls } = await searchNexus(message);
+
+      // 2. Fallback to DuckDuckGo (Scraping)
+      if (snippets.length === 0) {
+        console.log('Falling back to DuckDuckGo search...');
+        const ddg = await searchDuckDuckGo(message);
+        snippets = ddg.snippets;
+        urls = ddg.urls;
+      }
 
       if (snippets.length > 0) {
         // Build a summarized answer from the top search results
@@ -343,7 +386,7 @@ export async function POST(req: Request) {
 
       // Search returned nothing
       return NextResponse.json({
-        reply: `${namePrefix}Zkoušel jsem to najít na internetu, ale bohužel jsem k tomu nenašel žádné relevantní výsledky. 🤔 Zkus otázku formulovat jinak, nebo se mě zeptej na něco jiného!`
+        reply: `${namePrefix}Zkoušel jsem to najít na internetu přes Nexus i DuckDuckGo, ale bohužel jsem k tomu nenašel žádné relevantní výsledky. 🤔 Zkus otázku formulovat jinak!`
       });
     }
 
