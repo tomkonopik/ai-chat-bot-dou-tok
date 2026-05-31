@@ -35,7 +35,9 @@ html, body {
   font-family: var(--font-sans);
   height: 100dvh;
   width: 100vw;
-  overflow: hidden; /* Hide body scroll for desktop, handled inside main-container for mobile */
+  overflow: hidden; 
+  display: flex;
+  flex-direction: column;
 }
 
 /* Base scrollbars */
@@ -63,15 +65,23 @@ body::after {
 
 /* Header */
 .header {
-  height: 70px; padding: 0 4%;
+  flex: none;
+  padding: 16px 4%;
   display: flex; align-items: center; justify-content: space-between;
   background: var(--bg-header); backdrop-filter: var(--backdrop); -webkit-backdrop-filter: var(--backdrop);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
   position: relative; z-index: 100;
+  gap: 16px;
 }
 
 .header-logo { display: flex; align-items: center; gap: 12px; }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .header-logo img { width: 38px; height: 38px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-strong); box-shadow: 0 0 15px var(--accent-glow); }
 .header-logo span {
   font-family: var(--font-sans); font-size: clamp(16px, 2.5vw, 20px); font-weight: 800;
@@ -126,8 +136,11 @@ body::after {
 
 /* Layout Structure */
 .main-container {
+  flex: 1;
   display: flex; flex-direction: row; gap: 24px;
-  height: calc(100dvh - 70px); padding: 24px 4%;
+  padding: 24px 4%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .left-panel, .right-panel { flex: 1; display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .chat-panel { flex: 3; }
@@ -135,17 +148,17 @@ body::after {
 
 /* Responsive adjustments */
 @media (max-width: 1024px) {
-  .main-container { flex-direction: column; overflow-y: auto; height: auto; min-height: calc(100dvh - 70px); padding: 16px; gap: 16px; }
+  .main-container { flex-direction: column; padding: 16px; gap: 16px; }
   .left-panel, .right-panel { height: auto; flex: none; gap: 16px; }
   .chat-panel { min-height: 400px; }
   .right-panel { min-height: 600px; }
   .input-panel { min-height: 160px; }
 }
 @media (max-width: 600px) {
-  .header { flex-direction: column; height: auto; padding: 16px; gap: 16px; }
-  .header > div { width: 100%; justify-content: space-between; }
-  .dropdown-btn { min-width: auto; flex: 1; margin-left: 12px; }
-  .main-container { padding: 12px; min-height: calc(100dvh - 120px); }
+  .header { flex-direction: column; align-items: stretch; padding: 16px; gap: 16px; }
+  .header-actions { justify-content: space-between; }
+  .dropdown-btn { flex: 1; margin-left: 12px; }
+  .main-container { padding: 12px; }
   .chat-panel { min-height: 350px; }
   .right-panel { min-height: 500px; }
 }
