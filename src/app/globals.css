@@ -150,16 +150,17 @@ body::after {
 @media (max-width: 1024px) {
   .main-container { flex-direction: column; padding: 16px; gap: 16px; }
   .left-panel, .right-panel { height: auto; flex: none; gap: 16px; }
-  .chat-panel { min-height: 400px; }
+  .chat-panel { flex: none; min-height: 350px; height: 350px; }
+  .input-panel { flex: none; min-height: 180px; }
   .right-panel { min-height: 600px; }
-  .input-panel { min-height: 160px; }
 }
 @media (max-width: 600px) {
   .header { flex-direction: column; align-items: stretch; padding: 16px; gap: 16px; }
   .header-actions { justify-content: space-between; }
   .dropdown-btn { flex: 1; margin-left: 12px; }
   .main-container { padding: 12px; }
-  .chat-panel { min-height: 350px; }
+  .chat-panel { flex: none; min-height: 300px; height: 300px; }
+  .input-panel { flex: none; min-height: 160px; }
   .right-panel { min-height: 500px; }
 }
 
