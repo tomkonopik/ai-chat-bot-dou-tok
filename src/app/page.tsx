@@ -382,7 +382,7 @@ export default function Home() {
           <div className="chat-panel">
             <div className="panel-header">
               <div className="panel-header-dot" />
-              Hack Advisor
+              Hack Advisor <span style={{ opacity: 0.7, fontSize: '0.85em', marginLeft: '6px', fontWeight: 'normal' }}>( KONOBOT AI 2.3 )</span>
             </div>
             <div className="chat-messages" ref={chatRef}>
               {messages.map((msg, i) => (
