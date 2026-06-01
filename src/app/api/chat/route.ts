@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server';
 import { selectGame } from '../games';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // ============================
 // DouTok AI — Smart Chat Backend
 // ============================
 
 // Built-in knowledge base for common questions (no internet needed)
-const KNOWLEDGE: Record<string, string> = {
-  'hlavní město česka': 'Hlavní město České republiky je **Praha**. Je to největší město v zemi s přibližně 1,3 miliony obyvatel.',
-  'hlavní město slovenska': 'Hlavní město Slovenska je **Bratislava**, ležící na Dunaji poblíž hranic s Rakouskem a Maďarskem.',
-  'kdo je president česka': 'Prezidentem České republiky je od roku 2023 **Petr Pavel**.',
-  'co je ai': 'Umělá inteligence (AI) je obor informatiky zaměřený na vytváření systémů, které simulují lidskou inteligenci – učení se, rozhodování a řešení problémů.',
-  'co je javascript': 'JavaScript je programovací jazyk používaný hlavně pro tvorbu interaktivních webových stránek. Běží v prohlížeči i na serveru (Node.js).',
-  'co je python': 'Python je populární programovací jazyk známý svou jednoduchostí. Používá se v datové vědě, AI, webovém vývoji a automatizaci.',
-  'co je react': 'React je JavaScriptová knihovna od Facebooku pro tvorbu uživatelských rozhraní. Používá komponenty a virtuální DOM.',
-  'co je next.js': 'Next.js je React framework od Vercelu pro tvorbu fullstack webových aplikací s podporou server-side renderingu a API routes.',
-};
+// Hardcoded KNOWLEDGE removed in favor of Gemini API
 
 // Casual conversation patterns
 const GREETINGS = ['ahoj', 'čau', 'čus', 'zdravím', 'hello', 'hi', 'hej', 'nazdar', 'dobrý den', 'dobré ráno', 'dobrý večer'];
@@ -30,82 +24,7 @@ function getGreetingByTime(): string {
   return 'Dobrý večer';
 }
 
-// Attempt to find a knowledge base answer
-function findKnowledge(query: string): string | null {
-  const q = query.toLowerCase().trim();
-  for (const [key, value] of Object.entries(KNOWLEDGE)) {
-    if (q.includes(key)) return value;
-  }
-  return null;
-}
-
-// Detect if it's a real question that needs web search
-function needsSearch(msg: string): boolean {
-  const q = msg.toLowerCase();
-  // Don't search for greetings, thanks, farewells, file uploads
-  if (GREETINGS.some(g => q.includes(g))) return false;
-  if (FAREWELLS.some(f => q.includes(f))) return false;
-  if (THANKS.some(t => q.includes(t))) return false;
-  if (HOW_ARE_YOU.some(h => q.includes(h))) return false;
-  if (q.startsWith('📎')) return false;
-  if (q.includes('vytvoř mi prezentaci')) return false;
-  if (q.includes('vytvoř mi') && q.includes('hru')) return false;
-  if (q.length < 4) return false;
-  return true;
-}
-
-// Scrape DuckDuckGo for real search results
-async function searchDuckDuckGo(query: string): Promise<{ snippets: string[], urls: string[] }> {
-  try {
-    // Using the "lite" version of DuckDuckGo which is more scraping-friendly
-    const ddgUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
-    const res = await fetch(ddgUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-      cache: 'no-store',
-    });
-
-    if (!res.ok) {
-      console.warn(`DuckDuckGo returned ${res.status}`);
-      return { snippets: [], urls: [] };
-    }
-    
-    const html = await res.text();
-    const snippets: string[] = [];
-    const urls: string[] = [];
-
-    // Simple parser for lite.duckduckgo.com
-    const resultRegex = /<td class='result-snippet'>([\s\S]*?)<\/td>/gi;
-    const urlRegex = /<a class='result-link' href='([^']+)'>/gi;
-    
-    let match;
-    while ((match = resultRegex.exec(html)) !== null && snippets.length < 5) {
-      const clean = match[1].replace(/<\/?[^>]+(>|$)/g, '').trim();
-      if (clean.length > 20) snippets.push(clean);
-    }
-
-    while ((match = urlRegex.exec(html)) !== null && urls.length < 5) {
-      const url = match[1];
-      if (url.startsWith('http')) urls.push(url);
-    }
-
-    return { snippets, urls };
-  } catch (err) {
-    console.error('DuckDuckGo search error:', err);
-    return { snippets: [], urls: [] };
-  }
-}
-
-// Nexus Search — Robust AI-optimized Search (e.g. via Tavily or Serper)
-async function searchNexus(query: string): Promise<{ snippets: string[], urls: string[] }> {
-  const apiKey = process.env.TAVILY_API_KEY || process.env.NEXUS_API_KEY;
-  
-  if (!apiKey) {
-    console.log('Nexus Search API key not found, skipping...');
-    return { snippets: [], urls: [] };
-  }
+// Search functions removed in favor of Gemini API
 
   try {
     // Example using Tavily API which is highly reliable for AI
@@ -346,59 +265,49 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // 12. Knowledge base lookup
+    // 12. Gemini AI Integration (Replaces Knowledge Base & Search)
     // ============================
-    const kbAnswer = findKnowledge(lowerMsg);
-    if (kbAnswer) {
-      return NextResponse.json({
-        reply: `${namePrefix}${kbAnswer}${conversationFlavor}`
-      });
-    }
-
-    // ============================
-    // 13. Web Search (Nexus + DuckDuckGo)
-    // ============================
-    if (needsSearch(message)) {
-      // 1. Try Nexus Search first (Reliable API)
-      let { snippets, urls } = await searchNexus(message);
-
-      // 2. Fallback to DuckDuckGo (Scraping)
-      if (snippets.length === 0) {
-        console.log('Falling back to DuckDuckGo search...');
-        const ddg = await searchDuckDuckGo(message);
-        snippets = ddg.snippets;
-        urls = ddg.urls;
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        return NextResponse.json({
+          reply: `${namePrefix}Omlouvám se, ale AI model (Gemini) není nakonfigurován (chybí GEMINI_API_KEY v .env).`
+        });
       }
 
-      if (snippets.length > 0) {
-        // Build a summarized answer from the top search results
-        const summary = snippets.slice(0, 3).join('\n\n');
-        let reply = `${namePrefix}Tady je, co jsem pro tebe na internetu našel:${conversationFlavor}\n\n${summary}`;
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      
+      const systemPrompt = `Jsi umělá inteligence v Konopix Hack-In Simulátoru.
+Tvé odpovědi musí být VŽDY VELMI STRUČNÉ a K VĚCI. Nekrafej zbytečně dlouho.
+Jsi expert na hacking, IT a kybernetickou bezpečnost (pomáháš uživateli v simulátoru).
+Zároveň máš obrovský všeobecný přehled (zastupuješ databázi "30 000 otázek") a umíš se bavit i normálně.
+Když se s tebou uživatel baví o čemkoliv, odpověz krátce a přátelsky.
+Jméno uživatele je: ${userName || 'Neznámý'}.`;
 
-        // Only show links if user explicitly asks
-        const wantsLinks = lowerMsg.includes('odkaz') || lowerMsg.includes('zdroj') || lowerMsg.includes('link') || lowerMsg.includes('url');
-        if (wantsLinks && urls.length > 0) {
-          reply += '\n\n📎 **Zdroje:**\n' + urls.slice(0, 3).map(u => `- ${u}`).join('\n');
-        }
+      // We send previous messages to Gemini to maintain context
+      const formattedHistory = history && Array.isArray(history) ? history.map((msg: any) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text || '' }]
+      })) : [];
 
-        return NextResponse.json({ reply });
-      }
+      const chatSession = model.startChat({
+        history: [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ text: 'Rozumím. Jsem připraven stručně a jasně pomáhat v rámci Konopix Hack-In Simulátoru i běžné konverzace.' }] },
+          ...formattedHistory
+        ],
+      });
 
-      // Search returned nothing
+      const result = await chatSession.sendMessage(message);
+      const aiReply = result.response.text();
+
       return NextResponse.json({
-        reply: `${namePrefix}Zkoušel jsem to najít na internetu přes Nexus i DuckDuckGo, ale bohužel jsem k tomu nenašel žádné relevantní výsledky. 🤔 Zkus otázku formulovat jinak!`
+        reply: aiReply
+      });
+
+    } catch (e) {
+      console.error('Gemini API Error:', e);
+      return NextResponse.json({
+        reply: `${namePrefix}Promiň, spojení s mým hlavním mozkem (Gemini) se nezdařilo. Zkus to prosím za chvíli.`
       });
     }
-
-    // ============================
-    // 14. Catch-all fallback
-    // ============================
-    return NextResponse.json({
-      reply: `${namePrefix}Rozumím! ${conversationFlavor}Pokud chceš, můžu to zkusit vyhledat na internetu — stačí říct! Nebo se ptej na cokoliv dalšího. 😊`
-    });
-
-  } catch (error) {
-    console.error('Chat API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
 }
