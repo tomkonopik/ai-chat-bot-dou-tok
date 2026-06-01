@@ -204,7 +204,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'bot', text: 'Welcome, operative. Select a programming language from the menu above to begin your breach.' },
+    { role: 'bot', text: 'Welcome, operative. This Konobot AI is adapted for programming and therefore contains a smaller number of questions (30,000 questions). Select a programming language from the menu above to begin your breach.' },
   ]);
   const [userInput, setUserInput] = useState('');
   const [step, setStep] = useState(0);
@@ -254,7 +254,7 @@ export default function Home() {
     setNetworkActivity([]);
     const steps = getSteps(lang);
     setMessages([
-      { role: 'bot', text: 'Welcome, operative. Select a programming language from the menu above to begin your breach.' },
+      { role: 'bot', text: 'Welcome, operative. This Konobot AI is adapted for programming and therefore contains a smaller number of questions (30,000 questions). Select a programming language from the menu above to begin your breach.' },
       { role: 'bot', text: steps[0].botMessage },
     ]);
   }, []);
@@ -270,7 +270,7 @@ export default function Home() {
     setNetworkActivity([]);
     setUserInput('');
     setMessages([
-      { role: 'bot', text: 'Welcome, operative. Select a programming language from the menu above to begin your breach.' },
+      { role: 'bot', text: 'Welcome, operative. This Konobot AI is adapted for programming and therefore contains a smaller number of questions (30,000 questions). Select a programming language from the menu above to begin your breach.' },
     ]);
   }, []);
 
